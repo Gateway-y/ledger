@@ -1,0 +1,24 @@
+// Bill payment: customer pays via a channel; split between biller, platform fee,
+// and channel commission.
+vars {
+  monetary $amount
+  account $channel_collections   // channels:<channel_id>:collections
+  account $biller_payable        // billers:<biller_id>:payable
+  account $channel_commission    // channels:<channel_id>:commission
+  portion $fee_share             // e.g. 2%
+  portion $commission_share      // e.g. 1%
+}
+
+send $amount (
+  source = @world
+  destination = $channel_collections
+)
+
+send $amount (
+  source = $channel_collections
+  destination = {
+    $fee_share to @platform:fees:revenue
+    $commission_share to $channel_commission
+    remaining to $biller_payable
+  }
+)

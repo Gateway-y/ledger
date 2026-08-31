@@ -1,0 +1,17 @@
+// Refund of an unsettled payment: reverse funds from the biller payable
+// account back to the world through the channel.
+vars {
+  monetary $amount
+  account $biller_payable
+  account $channel_collections
+}
+
+send $amount (
+  source = $biller_payable
+  destination = $channel_collections
+)
+
+send $amount (
+  source = $channel_collections
+  destination = @world
+)

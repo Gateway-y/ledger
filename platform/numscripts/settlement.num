@@ -1,0 +1,13 @@
+// Daily settlement: move a biller's entire payable balance to settled,
+// paired with an external payout instruction (same settlement_batch_id
+// in transaction metadata).
+vars {
+  account $biller_payable
+  account $biller_settled
+  monetary $amount             // payable balance at cut-off
+}
+
+send $amount (
+  source = $biller_payable
+  destination = $biller_settled
+)
