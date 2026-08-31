@@ -25,9 +25,17 @@ Channels (banks, wallets, apps)
    ┌────┴─────┐
    ▼          ▼
 settlement   recon
-(daily payouts (ledger vs bank
- to billers)   statements)
+(issues NCP +  (daily recon files;
+ commissions    ledger vs RTGS
+ statements     result & participant
+ to the central notices)
+ bank's RTGS)
 ```
+
+Per the CBJ eFAWATEERcom regulatory framework, the platform **does not move
+money**: it issues end-of-day net clearing position (NCP) and commissions
+statements to the central bank's RTGS, which executes settlement across the
+participants' settlement-bank accounts.
 
 - **Formance modules run as infrastructure** (pinned Docker images / k8s operator) —
   they are *not* forked into this tree. Only MIT-licensed community components are used.
@@ -37,8 +45,8 @@ settlement   recon
 |---|---|
 | `cmd/channel-api` | Public API for payment channels: bill inquiry, pay, status |
 | `cmd/biller-gateway` | Adapters to each biller: inquiry, presentment, payment notification |
-| `cmd/settlement` | Daily settlement runs: aggregates biller payables, generates payout batches |
-| `cmd/recon` | Reconciles ledger balances vs bank statements / biller records |
+| `cmd/settlement` | End-of-day clearing: issues NCP + commissions statements for the RTGS, records clearing postings |
+| `cmd/recon` | Reconciles ledger state vs RTGS settlement results and participant notices |
 | `numscripts/` | Numscript templates: payment, refund, settlement postings |
 | `deployments/` | docker-compose to run Postgres + Formance Ledger + platform services |
 | `docs/` | Architecture and chart of accounts |
@@ -64,5 +72,6 @@ curl -s localhost:8081/v1/payments \
 ## Status
 
 Early scaffold. Working: service skeletons, ledger client, mock biller adapter,
-numscript templates, local docker-compose. Next: real biller adapters, settlement
-file generation (ACH/CliQ), recon policies, channel auth & request signing.
+numscript templates, NCP + commissions statement generation, local
+docker-compose. Next: real biller adapters, RTGS submission format/handshake,
+participant reconciliation file export, channel auth & request signing.

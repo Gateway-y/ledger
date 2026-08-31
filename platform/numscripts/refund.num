@@ -1,17 +1,15 @@
-// Refund of an unsettled payment: reverse funds from the biller payable
-// account back to the world through the channel.
+// Refund of an unsettled payment: the channel returns the money to the
+// customer, so the biller's payable is reversed back onto the channel's
+// due account (reducing what the channel owes the system).
+// Fee/commission reversal follows the platform's refund policy and is
+// posted separately when applicable.
 vars {
   monetary $amount
   account $biller_payable
-  account $channel_collections
+  account $channel_due
 }
 
 send $amount (
   source = $biller_payable
-  destination = $channel_collections
-)
-
-send $amount (
-  source = $channel_collections
-  destination = @world
+  destination = $channel_due
 )

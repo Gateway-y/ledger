@@ -1,6 +1,11 @@
-// Daily settlement: move a biller's entire payable balance to settled,
-// paired with an external payout instruction (same settlement_batch_id
-// in transaction metadata).
+// End-of-day clearing postings, mirroring the CBJ regulatory framework:
+// the platform only ISSUES the NCP (net clearing position) statement; the
+// central bank's RTGS executes the actual money movement across the
+// settlement banks' accounts. These postings record that the positions
+// were included in an NCP batch (settlement_batch_id in metadata).
+
+// 1. Biller side: payable balance at cut-off becomes settled (its settlement
+//    bank is credited by RTGS).
 vars {
   account $biller_payable
   account $biller_settled
@@ -11,3 +16,12 @@ send $amount (
   source = $biller_payable
   destination = $biller_settled
 )
+
+// 2. Channel side (separate transaction in practice): the channel's negative
+//    "due" balance is cleared back to zero once its settlement bank is
+//    debited by RTGS:
+//
+// send $due_amount (
+//   source = @world
+//   destination = $channel_due
+// )

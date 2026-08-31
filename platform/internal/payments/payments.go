@@ -16,7 +16,7 @@ import (
 // binary is self-contained; the .num files remain the reviewed reference).
 const billPaymentScript = `vars {
   monetary $amount
-  account $channel_collections
+  account $channel_due
   account $biller_payable
   account $channel_commission
   portion $fee_share
@@ -24,12 +24,7 @@ const billPaymentScript = `vars {
 }
 
 send $amount (
-  source = @world
-  destination = $channel_collections
-)
-
-send $amount (
-  source = $channel_collections
+  source = $channel_due allowing unbounded overdraft
   destination = {
     $fee_share to @platform:fees:revenue
     $commission_share to $channel_commission
@@ -79,12 +74,12 @@ func (s *Service) Pay(ctx context.Context, req Request) (Result, error) {
 	}
 
 	vars := map[string]any{
-		"amount":              map[string]any{"asset": req.Asset, "amount": req.Amount},
-		"channel_collections": fmt.Sprintf("channels:%s:collections", req.ChannelID),
-		"biller_payable":      fmt.Sprintf("billers:%s:payable", req.BillerID),
-		"channel_commission":  fmt.Sprintf("channels:%s:commission", req.ChannelID),
-		"fee_share":           s.FeeShare,
-		"commission_share":    s.CommissionShare,
+		"amount":             map[string]any{"asset": req.Asset, "amount": req.Amount},
+		"channel_due":        fmt.Sprintf("channels:%s:due", req.ChannelID),
+		"biller_payable":     fmt.Sprintf("billers:%s:payable", req.BillerID),
+		"channel_commission": fmt.Sprintf("channels:%s:commission", req.ChannelID),
+		"fee_share":          s.FeeShare,
+		"commission_share":   s.CommissionShare,
 	}
 	metadata := map[string]string{
 		"payment_id":     paymentID,

@@ -1,8 +1,12 @@
-// Bill payment: customer pays via a channel; split between biller, platform fee,
-// and channel commission.
+// Bill payment: a channel (paying bank / PSP) collected the bill amount from
+// the customer. The platform does not hold the cash — the channel now OWES the
+// gross amount, so its "due" account goes negative (receivable). The gross is
+// split between the biller's payable, the platform fee, and the channel
+// commission. Net positions are cleared later by the central bank's RTGS from
+// the end-of-day NCP (net clearing position) statement — see settlement.num.
 vars {
   monetary $amount
-  account $channel_collections   // channels:<channel_id>:collections
+  account $channel_due           // channels:<channel_id>:due (negative = owed to us)
   account $biller_payable        // billers:<biller_id>:payable
   account $channel_commission    // channels:<channel_id>:commission
   portion $fee_share             // e.g. 2%
@@ -10,12 +14,7 @@ vars {
 }
 
 send $amount (
-  source = @world
-  destination = $channel_collections
-)
-
-send $amount (
-  source = $channel_collections
+  source = $channel_due allowing unbounded overdraft
   destination = {
     $fee_share to @platform:fees:revenue
     $commission_share to $channel_commission
