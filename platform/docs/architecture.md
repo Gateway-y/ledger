@@ -62,10 +62,26 @@ See `numscripts/refund.num`.
 
 ### channel-api (port 8081)
 Public-facing API consumed by banks/wallets/apps.
-- `POST /v1/bills/inquiry` — look up amount due for a subscriber at a biller
-- `POST /v1/payments` — pay a bill; writes the ledger transaction and notifies the biller
-- `GET  /v1/payments/{id}` — payment status
+
+Customer profiles & subscriptions (CBJ framework):
+- `POST /v1/customers` — register a customer (nationality, identity document
+  type and number); idempotent, returns the platform customer id
+- `GET  /v1/customers/{id}`, `GET /v1/customers?nationality=&id_doc_type=&id_doc_number=` — inquire
+- `POST/GET /v1/customers/{id}/subscriptions`, `PUT/DELETE .../subscriptions/{subID}` — manage bill subscriptions
+
+Bills & payments:
+- `POST /v1/bills/inquiry` — look up bills; each bill returns a single-use
+  `inquiry_id` ticket with an expiry
+- `POST /v1/payments` — pay a bill; **requires a valid inquiry ticket**
+  (inquire-before-pay is enforced: the ticket must match biller, subscriber
+  and amount, be unexpired and unused; consumed atomically)
+- `GET  /v1/payments/{id}` — payment status from the ledger (paid / reversed)
+- `POST /v1/payments/{id}/reverse` — reverse an erroneous payment using the
+  ledger's native revert (both transactions stay in the audit trail)
 - Per-channel API keys, request signing, rate limits (TODO).
+
+Platform state (customers, subscriptions, inquiry tickets) lives in Postgres
+(`FAWTARA_DB_URI`), in `fawtara_*` tables.
 
 ### biller-gateway (port 8082)
 Internal service owning one adapter per biller. Adapter interface:
@@ -80,9 +96,13 @@ interface.
 - records the clearing postings in the ledger, tagged with the batch id.
 
 ### recon (cron / port 8084)
-- Pulls ledger balances & transaction logs,
-- pulls external sources (bank statements, biller confirmation files),
-- computes drift per asset/account, produces a report of mismatches.
+Publishes the daily reconciliation files required by the framework: after end
+of business day, one CSV per participant (channel and biller) listing the
+day's executed payment movements — payment id, bill ref, reference, gross and
+net amounts, reversal flag. Each participant matches the file against the
+notices it stored during the day; a movement recorded in error is reversed
+via `POST /v1/payments/{id}/reverse`. Next: matching the RTGS settlement
+result against issued NCP statements by `settlement_batch_id`.
 
 ## 4. Infrastructure
 
@@ -95,7 +115,25 @@ only — no `ee/` components):
 Production deployment targets Kubernetes with the Formance operator for the ledger,
 and plain Deployments for platform services.
 
-## 5. Non-functional requirements
+## 5. Data retention & archiving (15 years)
+
+The CBJ framework requires keeping system data retrievable for 15 years with
+guaranteed accuracy. The platform's retention posture:
+
+- **Ledger**: the Formance ledger log is append-only and hash-chained;
+  transactions are never deleted or mutated (reversals are new transactions).
+  Postgres full backups plus WAL archiving to durable object storage form the
+  15-year archive; restores must be drill-tested periodically.
+- **Statements**: every NCP payments/commissions statement and every daily
+  reconciliation file is written once, named by date and batch id, and moved
+  to immutable (write-once) object storage under the same retention clock.
+- **Platform store** (`fawtara_*` tables): customers and subscriptions use
+  soft deletion (`deleted_at`), inquiry tickets are never deleted — history
+  stays reconstructible.
+- Data is retrieved on demand by date/batch/participant; the ledger's own
+  query API serves transaction-level lookups for the whole retention window.
+
+## 6. Non-functional requirements
 
 - **Idempotency**: every payment carries a channel-supplied idempotency key; the
   ledger's transaction reference enforces uniqueness.

@@ -60,18 +60,24 @@ docker compose -f deployments/docker-compose.yml up -d
 # 2. Run a platform service
 go run ./cmd/channel-api
 
-# 3. Inquire a bill (mock biller)
+# 3. Register a customer (nationality + identity document)
+curl -s localhost:8081/v1/customers \
+  -d '{"nationality":"JO","id_doc_type":"national_id","id_doc_number":"9901012345"}'
+
+# 4. Inquire a bill (mock biller) — returns a single-use inquiry_id ticket
 curl -s localhost:8081/v1/bills/inquiry \
   -d '{"biller_id":"mock-electricity","subscriber_ref":"1234"}'
 
-# 4. Pay it
+# 5. Pay it (inquire-before-pay is enforced: inquiry_id is required)
 curl -s localhost:8081/v1/payments \
-  -d '{"biller_id":"mock-electricity","subscriber_ref":"1234","amount":45500,"asset":"JOD/3","channel_id":"bank_x"}'
+  -d '{"biller_id":"mock-electricity","subscriber_ref":"1234","amount":45500,"asset":"JOD/3","channel_id":"bank_x","inquiry_id":"<from step 4>"}'
 ```
 
 ## Status
 
-Early scaffold. Working: service skeletons, ledger client, mock biller adapter,
-numscript templates, NCP + commissions statement generation, local
-docker-compose. Next: real biller adapters, RTGS submission format/handshake,
-participant reconciliation file export, channel auth & request signing.
+Working (validated end-to-end against a live Formance Ledger + Postgres):
+customer profile registration & subscriptions, bill inquiry with single-use
+tickets, enforced inquire-before-pay, ledger payment split, payment status &
+reversal (ledger-native revert), NCP + commissions statement generation,
+per-participant daily reconciliation files. Next: real biller adapters, RTGS
+submission format/handshake, channel auth & request signing, automated tests.
